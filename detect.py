@@ -108,80 +108,126 @@ def main():
                                      num_output_scales=cfg.param_num_output_scales)
 
     if args.mode == 'image':
-        # data_folder = args.data
-        # file_name_list = [file_name for file_name in os.listdir(data_folder) \
-        #                   if file_name.lower().endswith('jpg')]
+        data_folder = args.data
+        file_name_list = [file_name for file_name in os.listdir(data_folder) \
+                          if file_name.lower().endswith('jpg')]
 
-        # for file_name in file_name_list:
-        #     im = cv2.imread(os.path.join(data_folder, file_name))
+        for file_name in file_name_list:
+            im = cv2.imread(os.path.join(data_folder, file_name))
+            h, w, c = im.shape
+            small_im = cv2.resize(im, (160, 120))
 
-        #     bboxes, infer_time = face_predictor.predict(im, resize_scale=1, score_threshold=0.6, top_k=10000, \
-        #                                                 NMS_threshold=0.4, NMS_flag=True, skip_scale_branch_list=[])
+            bboxes, infer_time = face_predictor.predict(small_im, resize_scale=1, score_threshold=0.6, top_k=10000, \
+                                                        NMS_threshold=0.4, NMS_flag=True, skip_scale_branch_list=[])
 
-        #     for bbox in bboxes:
-        #         cv2.rectangle(im, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+            imgs = [im[int((bbox[1]-25)*ratio_h):int((bbox[3]+10)*ratio_h), int((bbox[0]-15)*ratio_w):int((bbox[2]+15)*ratio_w)] for bbox in bboxes]
+                # x = 1.5*(int(bbox[3])-int(bbox[1]))/4
+            img_size = 224
+            pic = torch.randn(1,3,img_size,img_size)    
+            for i in range(len(imgs)):
+                # Convert pics into PIL formate
+                imgs[i] = Image.fromarray(cv2.cvtColor(imgs[i],cv2.COLOR_BGR2RGB))
+                # add one dimension to fake the batch dimension
+                imgs[i] = test_tfm(imgs[i]).unsqueeze(0)
+                pic = torch.cat((pic,imgs[i]), dim=0)
+    
+            imgs = pic[1:]
+            with torch.no_grad():
+                logits = model(imgs.to(device))
+            
+            
+            result = logits.argmax(dim=-1).cpu().numpy().tolist()
+            results = {0:'with_mask', 1:'incorrect_mask', 2:'no_mask'}
+            name = [results[x] for x in result]    
+            face_num = 0
+            for index,bbox in enumerate(bboxes):
+                face_num += 1
+                left, top, right, bottom = int(bbox[0]-15)*ratio_w, int(bbox[1]-25)*ratio_h, int(bbox[2]+15)*ratio_w, int(bbox[3]+10)*ratio_h
+                cv2.rectangle(im, (left, top), (right, bottom), (0, 255, 0), 2)
+                font = cv2.FONT_HERSHEY_DUPLEX
+                cv2.putText(im, name[index], (left + 6, bottom - 6), font, 1, (255, 255, 255), 1)
 
-        #     # if max(im.shape[:2]) > 1600:
-        #     #     scale = 1600/max(im.shape[:2])
-        #     #     im = cv2.resize(im, (0, 0), fx=scale, fy=scale)
-        #     cv2.imshow('im', im)
-        #     cv2.waitKey(5000)
-        #     cv2.imwrite(os.path.join(data_folder, file_name.replace('.jpg', '_result.png')), im)
-        print("Still developing, not done yet")
+            # if max(im.shape[:2]) > 1600:
+            #     scale = 1600/max(im.shape[:2])
+            #     im = cv2.resize(im, (0, 0), fx=scale, fy=scale)
+            cv2.imshow('im', im)
+            cv2.waitKey(5000)
+            cv2.imwrite(os.path.join(data_folder, file_name.replace('.jpg', '_result.png')), im)
+        # print("Still developing, not done yet")
+
+
     elif args.mode == 'video':
-        # win_name = 'LFFD DEMO'
-        # cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-        # data_folder = args.data
-        # file_name_list = [file_name for file_name in os.listdir(data_folder) \
-        #                   if file_name.lower().endswith('mp4')]
-        # for file_name in file_name_list:
-        #     out_file = os.path.join(data_folder, file_name.replace('.mp4', '_v2_gpu_result.avi'))
-        #     cap = cv2.VideoCapture(os.path.join(data_folder, file_name))
-        #     vid_writer = cv2.VideoWriter(out_file, \
-        #                                  cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 60, \
-        #                                  (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), \
-        #                                   int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
-        #     while cv2.waitKey(1) < 0:
-        #         ret, frame = cap.read()
-        #         if ret:
-        #             h, w, c = frame.shape
+        win_name = 'video'
+        cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('win_name', 640, 480)
+        data_folder = args.data
 
-        #         if not ret:
-        #             print("Done processing of %s" % file_name)
-        #             print("Output file is stored as %s" % out_file)
-        #             cv2.waitKey(3000)
-        #             break
+        file_name_list = [file_name for file_name in os.listdir(data_folder) \
+                          if file_name.lower().endswith('mp4')]
+        for file_name in file_name_list:
+            out_file = os.path.join(data_folder, file_name.replace('.mp4', '_v2_gpu_result.avi'))
+            cap = cv2.VideoCapture(os.path.join(data_folder, file_name))
+            vid_writer = cv2.VideoWriter(out_file, \
+                                         cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 60, \
+                                         (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), \
+                                          int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+            while cv2.waitKey(1) < 0:
+                ret, frame = cap.read()
+                if ret:
+                    h, w, c = frame.shape
 
-        #         tic = time.time()
-        #         bboxes, infer_time = face_predictor.predict(frame, resize_scale=1, score_threshold=0.6, top_k=10000, \
-        #                                                     NMS_threshold=0.4, NMS_flag=True, skip_scale_branch_list=[])
-        #         toc = time.time()
-        #         detect_time = (toc - tic) * 1000
+                if not ret:
+                    print("Done processing of %s" % file_name)
+                    print("Output file is stored as %s" % out_file)
+                    cv2.waitKey(3000)
+                    break
+                small_frame = cv2.resize(frame, (160, 120))
 
-        #         face_num = 0
-        #         for bbox in bboxes:
-        #             face_num += 1
-        #             cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+                ratio_h = h/120
+                ratio_w = w/160
 
-        #         computing_platform = 'Computing platform: NVIDIA GPU FP32'
-        #         cv2.putText(frame, computing_platform, (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
-        #         input_resolution = 'Network input resolution: %sx%s' % (w, h)
-        #         cv2.putText(frame, input_resolution, (5, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
-        #         infer_time_info = 'Inference time: %.2f ms' % (infer_time)
-        #         cv2.putText(frame, infer_time_info, (5, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
-        #         infer_speed = 'Inference speed: %.2f FPS' % (1000 / infer_time)
-        #         cv2.putText(frame, infer_speed, (5, 135), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
-        #         face_num_info = 'Face num: %d' % (face_num)
-        #         cv2.putText(frame, face_num_info, (5, 170), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+                tic = time.time()
+                bboxes, infer_time = face_predictor.predict(small_frame, resize_scale=1, score_threshold=0.6, top_k=10000, \
+                                                            NMS_threshold=0.4, NMS_flag=True, skip_scale_branch_list=[])
+                toc = time.time()
+                detect_time = (toc - tic) * 1000
+                imgs = [frame[int((bbox[1]-25)*ratio_h):int((bbox[3]+10)*ratio_h), int((bbox[0]-15)*ratio_w):int((bbox[2]+15)*ratio_w)] for bbox in bboxes]
+                # x = 1.5*(int(bbox[3])-int(bbox[1]))/4
+                img_size = 224
+                pic = torch.randn(1,3,img_size,img_size)
+    
+                for i in range(len(imgs)):
+                    # Convert pics into PIL formate
+                    imgs[i] = Image.fromarray(cv2.cvtColor(imgs[i],cv2.COLOR_BGR2RGB))
+                    # add one dimension to fake the batch dimension
+                    imgs[i] = test_tfm(imgs[i]).unsqueeze(0)
+                    pic = torch.cat((pic,imgs[i]), dim=0)
+     
+                imgs = pic[1:]
+                with torch.no_grad():
+                    logits = model(imgs.to(device))
+                
+                
+                result = logits.argmax(dim=-1).cpu().numpy().tolist()
+                results = {0:'with_mask', 1:'incorrect_mask', 2:'no_mask'}
+                name = [results[x] for x in result]
 
-        #         vid_writer.write(frame.astype(np.uint8))
-        #         # cv2.imshow(win_name, frame)
+                face_num = 0
+                for index,bbox in enumerate(bboxes):
+                    face_num += 1
+                    left, top, right, bottom = int(bbox[0]-15)*ratio_w, int(bbox[1]-25)*ratio_h, int(bbox[2]+15)*ratio_w, int(bbox[3]+10)*ratio_h
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                    font = cv2.FONT_HERSHEY_DUPLEX
+                    cv2.putText(frame, name[index], (left + 6, bottom - 6), font, 1, (255, 255, 255), 1)
 
-        #         if cv2.waitKey(1) & 0xFF == ord('q'):
-        #             break
+                vid_writer.write(frame.astype(np.uint8))
+                # cv2.imshow(win_name, frame)
 
-        #     cap.release()
-        #     cv2.destroyAllWindows()
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+
+            cap.release()
+            cv2.destroyAllWindows()
         print("Still developing, not done yet")
     elif args.mode == 'live':
        
@@ -191,17 +237,20 @@ def main():
 
         while True:
             ret, frame = cap.read()
-            small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+
             if ret:
                 h, w, c = frame.shape
             if not ret:
                 cv2.waitKey(3000)
                 break
 
-            tic = time.time()           
+            # Use small_frame to fasten locating faces
+            small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+            tic = time.time() 
+            # Predict the face location          
             bboxes, infer_time = face_predictor.predict(small_frame, resize_scale=1, score_threshold=0.6, top_k=10000, \
                                                         NMS_threshold=0.4, NMS_flag=True, skip_scale_branch_list=[])
-
+            # if there is no face in the video, the will make sure the video is still playing
             if len(bboxes)==0:
                 cv2.namedWindow('live', cv2.WINDOW_NORMAL)
                 cv2.resizeWindow('live', 640, 480)
@@ -213,13 +262,17 @@ def main():
             toc = time.time()
             detect_time = (toc - tic) * 1000
             face_num = 0
-            face_locate = []
+            
+            # Transfer the location in the small_frame to the original frame and extract the face image
             imgs = [frame[int(bbox[1]-25)*4:int(bbox[3]+10)*4, int(bbox[0]-15)*4:int(bbox[2]+15)*4] for bbox in bboxes]
+  
             img_size = 224
             pic = torch.randn(1,3,img_size,img_size)
-            
+
             for i in range(len(imgs)):
+                # Convert pics into PIL formate
                 imgs[i] = Image.fromarray(cv2.cvtColor(imgs[i],cv2.COLOR_BGR2RGB))
+                # add one dimension to fake the batch dimension
                 imgs[i] = test_tfm(imgs[i]).unsqueeze(0)
                 pic = torch.cat((pic,imgs[i]), dim=0)
  
@@ -235,7 +288,7 @@ def main():
             for index, bbox in enumerate(bboxes):
                 face_num += 1
                 # cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
-                left, top, right, bottom = int(bbox[0]-10)*4, int(bbox[1]-20)*4, int(bbox[2]+10)*4, int(bbox[3]+5)*4
+                left, top, right, bottom = int(bbox[0]-15)*4, int(bbox[1]-25)*4, int(bbox[2]+15)*4, int(bbox[3]+10)*4
                 cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
                 # cv2.rectangle(frame, (left, bottom + 10), (right, bottom), (0, 0, 255), cv2.FILLED)
                 font = cv2.FONT_HERSHEY_DUPLEX
