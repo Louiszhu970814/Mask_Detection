@@ -80,10 +80,12 @@ class MaskDetector():
 
 
 
-def main():
+def main(opt):
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     print('Your device is ', device)
-    model = torch.load('./classifier_model/resnet18_small.pt').to(device)
+    classifier = opt.classifier
+    model_img_size = opt.img_size
+    model = torch.load(classifier).to(device)
     mask_detector = MaskDetector()
     face_predictor = mask_detector.predict_face()   
     cap = cv2.VideoCapture(0)
@@ -110,7 +112,7 @@ def main():
             continue
         
         face_imgs, bboxes = mask_detector.face_imgs_and_location(frame, bboxes, ratio, original_size)
-        face_imgs = mask_detector.transform_imgs(face_imgs, bboxes)
+        face_imgs = mask_detector.transform_imgs(face_imgs, bboxes,img_size=model_img_size)
         name = mask_detector.classifier(model, face_imgs, device=device)
         frame = mask_detector.display_frame(frame, bboxes, name)
         cv2.namedWindow('live', cv2.WINDOW_NORMAL)
@@ -122,7 +124,16 @@ def main():
     cap.release()
     cv2.destroyAllWindows()
 
+
+
+def parse_opt(known=False):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--img-size', type=int, default=224, help='Your model input image size')
+    parser.add_argument('--classifier', type=str, default='./classifier_model/resnet18_small.pt', help='classifier model path')
+    opt = parser.parse_known_args()[0] if known else parser.parse_args()
+    return opt
 if __name__ == '__main__':
-    main()
+    opt = parse_opt()
+    main(opt)
 
 
