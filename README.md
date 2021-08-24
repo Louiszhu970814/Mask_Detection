@@ -12,15 +12,21 @@ pip install -r requirements.txt
 
 ## Run detect.py
 ```
-python detect.py
+python MaskDetector.py
 ```
-## Use your own classifier
+## Use your own classifier 
 
-Put your ".pt" files in "./classifier_model" and type
+Put your model files in "./classifier_model" 
 
 ```
-python detect.py --model ./classifier_model/your_model.pt 
+python detect.py --model ./classifier_model/your_model.pt --img-size YOUR MODEL INPUT IMAGE SIZE
 ```
+This project will do the preporcess to the input images before feeding them to the model, which will change images from 'BGR' to 'RGB', pixel range from [0,255] to [0,1] and numpy formate to PIL formate.
+
+### So when you train your model, make sure the model input images are 'RGB',[0,1] and PIL formate
+
+
+
 ## Reference
 
 https://github.com/YonghaoHe/LFFD-A-Light-and-Fast-Face-Detector-for-Edge-Devices
