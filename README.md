@@ -1,6 +1,7 @@
 # Mask_Detection
-### This project is mainly about to detect if a person is wearing a face mask and weather they are wearing the mask in a correct way.
-### So the work flow of 
+This project amis to detect if a person is wearing a face mask and weather they wear the masks correctly.
+This detector is a two-stage detector which means it first extract face images from the original picture, then it use a classifier to determine which class dose these face belong to.
+Fianlly, show the processed images on monitors.
 ## First Install Pytorch
 ```
 pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio===0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
