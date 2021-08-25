@@ -1,4 +1,6 @@
 # Mask_Detection
+### This project is mainly about to detect if a person is wearing a face mask and weather they are wearing the mask in a correct way.
+### So the work flow of 
 ## First Install Pytorch
 ```
 pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio===0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
