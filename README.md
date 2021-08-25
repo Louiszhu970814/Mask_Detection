@@ -21,7 +21,7 @@ Put your model files in "./classifier_model"
 ```
 python detect.py --model ./classifier_model/your_model.pt --img-size YOUR_MODEL_INPUT_IMAGE_SIZE
 ```
-This project will do the preporcess to the input images before feeding them to the model, which will change images from 'BGR' to 'RGB', pixel range from [0,255] to [0,1] and numpy formate to PIL formate.
+This project will do the preporcess to the input images before feeding them to the model, which will change images from 'BGR' to 'RGB', pixel range from [0,255] to [0,1] and numpy image formate to PIL formate.
 
 ### So when you train your model, make sure the model input images are 'RGB',[0,1] and PIL formate
  
